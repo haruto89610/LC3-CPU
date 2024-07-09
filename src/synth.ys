@@ -1,0 +1,8 @@
+# Read Verilog source file
+read_verilog main.v
+
+# Synthesis and optimization
+synth -top main
+
+write_json main.json
+write_verilog main_synth.v
