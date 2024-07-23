@@ -1,33 +1,33 @@
 module tristate (
     input [15:0] in,
     input OE,
-    output out
+    output reg [15:0] out
 );
-    assign out = OE? in : 1'bZ;
+    assign out = OE? in : 16'bZ;
 endmodule
 
-module mux2x1 (
-    input [15:0] in0,
-    input [15:0] in1,
+module mux2x1 #(parameter BIT = 16) (
+    input [BIT-1:0] in0,
+    input [BIT-1:0] in1,
     input select,
-    output reg [15:0] out
+    output reg [BIT-1:0] out
 );
     always @(*) begin
         case(select)
             1'b0: out = in0;
             1'b1: out = in1;
-            default: out = 16'bZ;
+            default: out = 1'bZ;
         endcase
     end
 endmodule
 
-module mux4x1 (
-    input [15:0] in0,
-    input [15:0] in1,
-    input [15:0] in2,
-    input [15:0] in3,
+module mux4x1 #(parameter BIT = 16) (
+    input [BIT-1:0] in0,
+    input [BIT-1:0] in1,
+    input [BIT-1:0] in2,
+    input [BIT-1:0] in3,
     input select1, select0,
-    output reg [15:0] out
+    output reg [BIT-1:0] out
 );  
     always @(*) begin
         case({select1, select0})
@@ -57,6 +57,13 @@ module RAM (
     output reg ready
 );
     reg [15:0] memory [2**16-1:0];
+
+    integer i;
+    initial begin
+        for (i = 0; i < 2**16; i = i + 1) begin
+            memory[i] = 16'b0;
+        end
+    end
 
     always @(posedge CLK) begin
         if (CS) begin

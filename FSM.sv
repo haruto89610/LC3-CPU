@@ -297,7 +297,7 @@ module FSM (
             LDI3: begin
                 // MAR <- MDR
                 GateMDR <= 1'b1;
-                LD_MDR <= 1'b1;
+                LD_MAR <= 1'b1;
             end
             MEM11: begin
                 // MDR <- M[MAR]
@@ -310,6 +310,7 @@ module FSM (
                 GateMDR <= 1'b1;
                 LD_REG <= 1'b1;
                 DRMUXsel <= 2'b00;
+                LD_CC <= 1'b1;
             end
             STI1: begin
                 // MAR <- PC + off9

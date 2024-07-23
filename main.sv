@@ -8,7 +8,7 @@ module main (
 // MUX SIGNALS
     wire ADDR1sel;
     wire [1:0] ADDR2sel;
-    wire [1:0] MARMUXsel;
+    wire MARMUXsel;
     wire [1:0] PCMUXsel;
     wire [1:0] DRMUXsel;
     wire [1:0] SR1MUXsel;
@@ -18,6 +18,7 @@ module main (
     wire LD_MAR, LD_MDR, LD_IR, LD_PC, LD_REG, LD_CC, LD_BEN;
 // REG SIGNALS
     wire MIO_EN, WE;
+    wire ready;
 
     wire [15:0] MARout;
     wire [15:0] RAMout;
@@ -50,8 +51,12 @@ module main (
 
     reg [15:0] ALUout;
 
+    initial begin
+
+    end
+
 // REGISTER FILE
-    mux4x1 DRMUX(
+    mux4x1 #(.BIT(3)) DRMUX(
         .in0(IRout[11:9]),
         .in1(3'b111),
         .in2(3'b110),
@@ -61,7 +66,7 @@ module main (
         .out(DRMUXout)
     );
 
-    mux4x1 SR1MUX(
+    mux4x1 #(.BIT(3)) SR1MUX (
         .in0(IRout[11:9]),
         .in1(IRout[8:6]),
         .in2(3'b110),

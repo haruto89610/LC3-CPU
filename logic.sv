@@ -28,7 +28,7 @@ module LOGIC (
         .out(Pout)
     );
 
-    always @(posedge CLK) begin
+    always @(*) begin
         Nin <= 1'b0;
         Zin <= 1'b0;
         Pin <= 1'b0;
@@ -45,14 +45,12 @@ endmodule
 module BR_COMP (
     input [2:0] IR,
     input CLK, LD, N, Z, P,
-    output reg BEN
+    output BEN
 );
-    always @(posedge CLK) begin
-        if (LD) begin
-            if ((N && IR[2]) || (Z && IR[1]) || (P && IR[0]))
-                BEN <= 1'b1;
-            else
-                BEN <= 1'b0;
-        end
+    if (LD) begin
+        if ((N && IR[2]) || (Z && IR[1]) || (P && IR[0]))
+            assign BEN <= 1'b1;
+        else
+            assign BEN <= 1'b0;
     end
 endmodule
