@@ -29,28 +29,30 @@ module LOGIC (
     );
 
     always @(*) begin
-        Nin <= 1'b0;
-        Zin <= 1'b0;
-        Pin <= 1'b0;
+        Nin = 1'b0;
+        Zin = 1'b0;
+        Pin = 1'b0;
 
         if (BUS[15:0] == 16'b0)
-            Zin <= 1'b1;
+            Zin < 1'b1;
         else if (BUS[15] == 1'b1)
-            Nin <= 1'b1;
+            Nin = 1'b1;
         else if (BUS[15] == 1'b0)
-            Pin <= 1'b1;
+            Pin = 1'b1;
     end
 endmodule
 
 module BR_COMP (
     input [2:0] IR,
     input CLK, LD, N, Z, P,
-    output BEN
+    output reg BEN
 );
-    if (LD) begin
-        if ((N && IR[2]) || (Z && IR[1]) || (P && IR[0]))
-            assign BEN <= 1'b1;
-        else
-            assign BEN <= 1'b0;
+    always @(posedge CLK) begin
+        if (LD) begin
+            if ((N && IR[2]) || (Z && IR[1]) || (P && IR[0]))
+                assign BEN <= 1'b1;
+            else
+                assign BEN <= 1'b0;
+        end
     end
 endmodule

@@ -47,12 +47,14 @@ module main (
 
     wire BEN;
 
-    reg Nout, Zout, Pout;
+    reg Nout = 1'b0;
+    reg Zout = 1'b0;
+    reg Pout = 1'b0;
 
     reg [15:0] ALUout;
-
+    
     initial begin
-
+        assign RST <= 1'b1;
     end
 
 // REGISTER FILE
@@ -206,7 +208,7 @@ module main (
             2'b01: ALUout = SR2MUXout & SR1out;
             2'b10: ALUout = ~SR1out;
             2'b11: ALUout = SR1out;
-            default: ALUout = 16'bZ;
+            default: ALUout = 16'b0;
         endcase
     end
 

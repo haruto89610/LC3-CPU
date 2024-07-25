@@ -7,7 +7,13 @@ module FSM (
     output reg LD_MAR, LD_MDR, LD_IR, LD_PC, LD_REG, LD_BEN, LD_CC,
     output reg GateMARMUX, GateMDR, GateALU, GatePC,
 
-    output reg MARMUXsel, ADDR1MUXsel, ADDR2MUXsel, PCMUXsel, SR1MUXsel, CS, WE, ALUK, DRMUXsel
+    output reg MARMUXsel, ADDR1MUXsel,
+    output reg [1:0] ADDR2MUXsel,
+    output reg [1:0] PCMUXsel, 
+    output reg [1:0] SR1MUXsel, 
+    output reg CS, WE, 
+    output reg [1:0] ALUK, 
+    output reg [1:0] DRMUXsel
 );
     typedef enum logic [5:0] {
         // FETCH
@@ -59,6 +65,30 @@ module FSM (
 
     // Next state logic
     always @(*) begin
+
+    LD_MAR = 1'b0;
+    LD_MDR = 1'b0;
+    LD_IR = 1'b0;
+    LD_PC = 1'b0;
+    LD_REG = 1'b0;
+    LD_BEN = 1'b0;
+    LD_CC = 1'b0;
+
+    GateMARMUX = 1'b0;
+    GateMDR = 1'b0;
+    GateALU = 1'b0;
+    GatePC = 1'b0;
+
+    MARMUXsel = 1'b0;
+    ADDR1MUXsel = 1'b0;
+    ADDR2MUXsel = 2'b00;
+    PCMUXsel = 2'b00;
+    SR1MUXsel = 2'b00;
+    CS = 1'b0;
+    WE = 1'b0;
+    ALUK = 2'b00;
+    DRMUXsel = 2'b00;
+
         case (current_state)
             FETCH1: next_state = FETCH2;
             FETCH2: next_state = FETCH3;

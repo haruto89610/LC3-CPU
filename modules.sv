@@ -1,7 +1,7 @@
 module tristate (
     input [15:0] in,
     input OE,
-    output reg [15:0] out
+    output [15:0] out
 );
     assign out = OE? in : 16'bZ;
 endmodule
@@ -16,7 +16,7 @@ module mux2x1 #(parameter BIT = 16) (
         case(select)
             1'b0: out = in0;
             1'b1: out = in1;
-            default: out = 1'bZ;
+            default: out = {BIT{1'bz}};
         endcase
     end
 endmodule
@@ -35,6 +35,7 @@ module mux4x1 #(parameter BIT = 16) (
             2'b01: out = in1;
             2'b10: out = in2;
             2'b11: out = in3;
+            default: out = {BIT{1'bz}};
         endcase
     end
 endmodule
@@ -71,7 +72,7 @@ module RAM (
             if (WE) begin
                 memory[ADDR] <= DataIn;
                 out <= 16'bZ;
-            end else if (!WE && CS) begin
+            end else if (!WE) begin
                 out <= memory[ADDR];
                 ready = 1'b1;
             end
