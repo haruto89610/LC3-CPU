@@ -1,7 +1,7 @@
 module tristate (
     input [15:0] in,
     input OE,
-    output [15:0] out
+    output wire [15:0] out
 );
     assign out = OE? in : 16'bZ;
 endmodule
@@ -16,7 +16,7 @@ module mux2x1 #(parameter BIT = 16) (
         case(select)
             1'b0: out = in0;
             1'b1: out = in1;
-            default: out = {BIT{1'bz}};
+            default: out = {BIT{1'bZ}};
         endcase
     end
 endmodule
@@ -35,7 +35,6 @@ module mux4x1 #(parameter BIT = 16) (
             2'b01: out = in1;
             2'b10: out = in2;
             2'b11: out = in3;
-            default: out = {BIT{1'bz}};
         endcase
     end
 endmodule
@@ -57,13 +56,16 @@ module RAM (
     output reg [15:0] out,
     output reg ready
 );
-    reg [15:0] memory [2**16-1:0];
 
-    integer i;
+    reg [15:0] memory [0:2**16];
+
+	 integer i;
     initial begin
-        for (i = 0; i < 2**16; i = i + 1) begin
-            memory[i] = 16'b0;
-        end
+		  //readmemh("memory_init.hex", memory);
+//        for (i = 0; i < 65536; i = i + 1) begin
+//            memory[i] = 16'b0; // Set each word to 0
+//        end
+		  ready = 1'b0;
     end
 
     always @(posedge CLK) begin
@@ -72,9 +74,9 @@ module RAM (
             if (WE) begin
                 memory[ADDR] <= DataIn;
                 out <= 16'bZ;
-            end else if (!WE) begin
+            end else if (!WE && CS) begin
                 out <= memory[ADDR];
-                ready = 1'b1;
+                ready <= 1'b1;
             end
         end
     end
