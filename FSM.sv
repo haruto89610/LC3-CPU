@@ -224,6 +224,8 @@ module FSM (
             FETCH1: begin
                 LD_MAR <= 1'b1;
                 GatePC <= 1'b1;
+                LD_PC <= 1'b1;
+                PCMUXsel <= 2'b00;
             end
             FETCH2: begin
                 CS <= 1'b1;
