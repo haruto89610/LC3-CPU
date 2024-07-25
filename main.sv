@@ -12,13 +12,14 @@ endmodule
 module main (
 // PERIPHERALS
     inout [15:0] BUS,
-    input CLK, 
-    input reg RST
+    input CLK
 );
 
     clock_generator clock(
         .clk(CLK)
     );
+
+    reg RST;
 
     wire [1:0] ALUK;
 // MUX SIGNALS
@@ -43,6 +44,7 @@ module main (
 
     wire [15:0] PCMUXout;
     reg [15:0] PCout;
+    wire [15:0] PCcount;
 
     wire [15:0] IRout;
 
@@ -68,14 +70,18 @@ module main (
     reg Pout = 1'b0;
 
     reg [15:0] ALUout;
-    
+
     initial begin
-        RST = 1'b1;
-	    PCout = 16'b0;
+        PCout <= 16'b0;
     end
 
-    always @(posedge CLK) begin
-        RST <= 1'b0;
+    always @(posedge CLK or posedge RST) begin
+        if (RST) begin
+            PCout <= 16'b0;
+        end else begin
+            PCout <= PCout;
+        end
+    end
 
     // REGISTER FILE
         mux4x1 #(.BIT(3)) DRMUX(
@@ -191,8 +197,9 @@ module main (
         );
 
     // PROGRAM COUNTER
+        assign PCcount = PCout + 1'b1;
         mux4x1 PCMUX(
-            .in0(PCout + 1'b1),
+            .in0(PCcount),
             .in1(BUS),
             .in2(ADDR2ADDR1sum),
             .in3(16'bZ),
@@ -288,5 +295,5 @@ module main (
             .ALUK(ALUK),
             .DRMUXsel(DRMUXsel)
         );
-    end
+
 endmodule
