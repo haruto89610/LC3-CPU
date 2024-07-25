@@ -59,13 +59,10 @@ module RAM (
 
     reg [15:0] memory [0:2**16];
 
-	 integer i;
     initial begin
-		  //readmemh("memory_init.hex", memory);
-//        for (i = 0; i < 65536; i = i + 1) begin
-//            memory[i] = 16'b0; // Set each word to 0
-//        end
-		  ready = 1'b0;
+        memory[0] <= 16'b0101001001100000;
+        memory[1] <= 16'b0001001001100001;
+        ready = 1'b0;
     end
 
     always @(posedge CLK) begin
