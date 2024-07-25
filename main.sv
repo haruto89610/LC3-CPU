@@ -1,8 +1,24 @@
+module clock_generator(
+    output reg clk  // Change input to output and use reg for clk
+);
+    initial begin
+        clk = 0;
+        forever begin
+            #5 clk = ~clk;  // Toggle the clock every 5 time units
+        end
+    end
+endmodule
+
 module main (
 // PERIPHERALS
     inout [15:0] BUS,
-    input CLK, RST
+    input CLK, 
+    input reg RST = 1'b0
 );
+
+    clock_generator clock(
+        .clk(CLK)
+    );
 
     wire [1:0] ALUK;
 // MUX SIGNALS
@@ -26,7 +42,7 @@ module main (
     wire [15:0] MDRout;
 
     wire [15:0] PCMUXout;
-    wire [15:0] PCout;
+    reg [15:0] PCout;
 
     wire [15:0] IRout;
 
@@ -54,8 +70,10 @@ module main (
     reg [15:0] ALUout;
     
     initial begin
-        assign RST <= 1'b1;
+        RST = 1'b1;
+	PCout = 16'b0;
     end
+    RST = 1'b0;
 
 // REGISTER FILE
     mux4x1 #(.BIT(3)) DRMUX(
