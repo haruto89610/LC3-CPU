@@ -130,7 +130,7 @@ module main (
             .out(MDRout)
         );
 
-        mux2x1 MEM_MUX(
+        mux2x1 MEM_MUX (
             .in0(BUS),
             .in1(RAMout),
             .select(MIO_EN),
