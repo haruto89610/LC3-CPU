@@ -1,299 +1,453 @@
-module clock_generator(
-    output reg clk  // Change input to output and use reg for clk
+module FSM (
+    input CLK, RESET, READY, 
+    input BEN,
+    input wire [15:0] IR,
+
+    input wire N, Z, P,
+
+    output reg LD_MAR, LD_MDR, LD_IR, LD_PC, LD_REG, LD_BEN, LD_CC,
+    output reg GateMARMUX, GateMDR, GateALU, GatePC,
+
+    output reg MARMUXsel, ADDR1MUXsel,
+    output reg [1:0] ADDR2MUXsel,
+    output reg [1:0] PCMUXsel, 
+    output reg [1:0] SR1MUXsel, 
+    output reg CS, WE, 
+    output reg [1:0] ALUK, 
+    output reg [1:0] DRMUXsel
 );
-    initial begin
-        clk = 0;
-        forever begin
-            #5 clk = ~clk;  // Toggle the clock every 5 time units
-        end
-    end
-endmodule
+	reg internal_ben;
 
-module main (
-// PERIPHERALS
-    inout [15:0] BUS,
-    input CLK
-);
-
-    clock_generator clock(
-        .clk(CLK)
-    );
-
-    reg RST;
-
-    wire [1:0] ALUK;
-// MUX SIGNALS
-    wire ADDR1sel;
-    wire [1:0] ADDR2sel;
-    wire MARMUXsel;
-    wire [1:0] PCMUXsel;
-    wire [1:0] DRMUXsel;
-    wire [1:0] SR1MUXsel;
-// GATE SIGNALS
-    wire GateMDR, GateMARMUX, GatePC, GateALU;
-// LD SIGNALS
-    wire LD_MAR, LD_MDR, LD_IR, LD_PC, LD_REG, LD_CC, LD_BEN;
-// REG SIGNALS
-    wire MIO_EN, WE;
-    wire ready;
-
-    wire [15:0] MARout;
-    wire [15:0] RAMout;
-    wire [15:0] MEMMUXOUT;
-    wire [15:0] MDRout;
-
-    wire [15:0] PCMUXout;
-    reg [15:0] PCout;
-    wire [15:0] PCcount;
-
-    wire [15:0] IRout;
-
-    wire [15:0] ADDR1MUXout;
-
-    wire [15:0] ADDR2MUXout;
-    wire [15:0] ADDR2ADDR1sum;
-
-    wire [15:0] MARMUXout;
-
-    wire [2:0] DRMUXout;
-    wire [2:0] SR1MUXout;
-
-    wire [15:0] SR1out;
-    wire [15:0] SR2out;
-
-    wire [15:0] SR2MUXout;
-
-    wire BEN;
-
-    reg Nout = 1'b0;
-    reg Zout = 1'b0;
-    reg Pout = 1'b0;
-
-    reg [15:0] ALUout;
-
-    initial begin
-        PCout <= 16'b0;
-    end
-
-    always @(posedge CLK or posedge RST) begin
-        if (RST) begin
-            PCout <= 16'b0;
-        end else begin
-            PCout <= PCout;
-        end
-    end
-
-    // REGISTER FILE
-        mux4x1 #(.BIT(3)) DRMUX(
-            .in0(IRout[11:9]),
-            .in1(3'b111),
-            .in2(3'b110),
-            .in3(3'bZ),
-            .select1(DRMUXsel[1]),
-            .select0(DRMUXsel[0]),
-            .out(DRMUXout)
-        );
-
-        mux4x1 #(.BIT(3)) SR1MUX (
-            .in0(IRout[11:9]),
-            .in1(IRout[8:6]),
-            .in2(3'b110),
-            .in3(3'bZ),
-            .select1(SR1MUXsel[1]),
-            .select0(SR1MUXsel[0]),
-            .out(SR1MUXout)
-        );
-
-        REG_FILE REG_FILE(
-            .DataIn(BUS),
-            .DR(DRMUXout),
-            .SR1(SR1MUXout),
-            .SR2(IRout[2:0]),
-            .LD(LD_REG),
-            .CLK(CLK),
-            .SR1out(SR1out),
-            .SR2out(SR2out)
-        );
-
-    // RAM SECTION
-        registerFF MAR(
-            .in(BUS),
-            .LD(LD_MAR),
-            .CLK(CLK),
-            .out(MARout)
-        );
-
-        registerFF MDR(
-            .in(MEMMUXOUT),
-            .LD(LD_MDR),
-            .CLK(CLK),
-            .out(MDRout)
-        );
-
-        mux2x1 MEM_MUX(
-            .in0(BUS),
-            .in1(RAMout),
-            .select(MIO_EN),
-            .out(MEMMUXOUT)
-        );
-
-        tristate TRI_MDR(
-            .in(MDRout),
-            .OE(GateMDR),
-            .out(BUS)
-        );
-
-        RAM RAM(
-            .DataIn(MDRout),
-            .ADDR(MARout),
-            .WE(WE),
-            .CS(MIO_EN),
-            .CLK(CLK),
-            .out(RAMout),
-            .ready(ready)   //TODO ready signal
-        );
-
-    // IR OUTPUTS
-        registerFF IR(
-            .in(BUS),
-            .LD(LD_IR),
-            .CLK(CLK),
-            .out(IRout)
-        );
-
-    // ADDRESS1MUX
-        mux2x1 ADDRESS1MUX(
-            .in0(PCout),
-            .in1(SR1out),     //TODO add SR1out
-            .select(ADDR1sel),
-            .out(ADDR1MUXout)
-        );
-
-    // ADDRESS2MUX
-        assign ADDR2ADDR1sum = ADDR2MUXout + ADDR1MUXout;
+    typedef enum logic [5:0] {
+        // FETCH
+        FETCH1 = 6'd18,
+        FETCH2 = 6'd33,
+        FETCH3 = 6'd35,
         
-        mux4x1 ADDRESS2MUX(
-            .in0(16'b0),
-            .in1({{10{IRout[5]}}, IRout[5:0]}),
-            .in2({{7{IRout[8]}}, IRout[8:0]}),
-            .in3({{5{IRout[10]}}, IRout[10:0]}),
-            .select1(ADDR2sel[1]),
-            .select0(ADDR2sel[0]),
-            .out(ADDR2MUXout)
-        );
+        // DECODE
+        DECODE = 6'd32,
 
-    // MARMUX
-        mux2x1 MARMUX(
-            .in0({8'b0, IRout[7:0]}),
-            .in1(ADDR2ADDR1sum),
-            .select(MARMUXsel),
-            .out(MARMUXout)
-        );
+        ADD     = 6'd8,
+        AND     = 6'd5,
+        NOT     = 6'd9,
+        TRAP1   = 6'd15,
+        TRAP2   = 6'd28,
+        TRAP3   = 6'd30,
+        LEA     = 6'd14,
+        LD      = 6'd2,
+        LDR     = 6'd6,
+        LDI1    = 6'd10,
+        LDI2    = 6'd24,
+        LDI3    = 6'd26,
+        STI1    = 6'd11,
+        STI2    = 6'd29,
+        STI3    = 6'd31,
+        STR     = 6'd7,
+        ST      = 6'd3,
+        JSR     = 6'd4,
+        JSR1    = 6'd21,
+        JSR0    = 6'd20,
+        JMP     = 6'd12,
+        BR1     = 6'd0,
+        BR2     = 6'd22,
 
-        tristate TRI_MARMUX(
-            .in(MARMUXout),
-            .OE(GateMARMUX),
-            .out(BUS)
-        );
+        MEM11   = 6'd25,
+        MEM12   = 6'd27,
+        MEM21   = 6'd23,
+        MEM22   = 6'd16
+    } state_t;
 
-    // PROGRAM COUNTER
-        assign PCcount = PCout + 1'b1;
-        mux4x1 PCMUX(
-            .in0(PCcount),
-            .in1(BUS),
-            .in2(ADDR2ADDR1sum),
-            .in3(16'bZ),
-            .select1(PCMUXsel[1]),
-            .select0(PCMUXsel[0]),
-            .out(PCMUXout)
-        );
+    state_t current_state, next_state;
 
-        registerFF PC(
-            .in(PCMUXout),
-            .LD(LD_PC),
-            .CLK(CLK),
-            .out(PCout)
-        );
+    always @(posedge CLK or posedge RESET) begin
+        if (RESET)
+            current_state <= FETCH1;
+        else
+            current_state <= next_state;
+    end
 
-        tristate TRI_PC(
-            .in(PCout),
-            .OE(GatePC),
-            .out(BUS)
-        );
 
-    // ALU
-        mux2x1 SR2MUX(
-            .in0(SR2out),
-            .in1({{11{IRout[4]}}, IRout[4:0]}),
-            .select(IRout[5]),
-            .out(SR2MUXout)
-        );
+    // Next state logic
+    always @(CLK) begin
 
-        always @(*) begin
-            case(ALUK)
-                2'b00: ALUout = SR2MUXout + SR1out;
-                2'b01: ALUout = SR2MUXout & SR1out;
-                2'b10: ALUout = ~SR1out;
-                2'b11: ALUout = SR1out;
-                default: ALUout = 16'b0;
-            endcase
-        end
+    LD_MAR = 1'b0;
+    LD_MDR = 1'b0;
+    LD_IR = 1'b0;
+    LD_PC = 1'b0;
+    LD_REG = 1'b0;
+    LD_BEN = 1'b0;
+    LD_CC = 1'b0;
 
-        tristate TRI_ALU(
-            .in(ALUout),
-            .OE(GateALU),
-            .out(BUS)
-        );
+    GateMARMUX = 1'b0;
+    GateMDR = 1'b0;
+    GateALU = 1'b0;
+    GatePC = 1'b0;
 
-    // FSM
-        LOGIC LOGIC(
-            .BUS(BUS),
-            .LD(LD_CC),
-            .CLK(CLK),
-            .Nout(Nout),
-            .Zout(Zout),
-            .Pout(Pout)
-        );
+    MARMUXsel = 1'b0;
+    ADDR1MUXsel = 1'b0;
+    ADDR2MUXsel = 2'b00;
+    PCMUXsel = 2'b00;
+    SR1MUXsel = 2'b00;
+    CS = 1'b0;
+    WE = 1'b0;
+    ALUK = 2'b00;
+    DRMUXsel = 2'b00;
 
-        BR_COMP BR_COMP(
-            .IR(IRout[11:9]),
-            .CLK(CLK),
-            .LD(LD_BEN),
-            .N(Nout),
-            .Z(Zout),
-            .P(Pout),
-            .BEN(BEN)
-        );
+        case (current_state)
+            FETCH1: next_state = FETCH2;
+            FETCH2: next_state = FETCH3;
+            FETCH3: next_state = DECODE;
+            DECODE: begin
+                case (IR[15:12])
+                    4'b0001: next_state = ADD;
+                    4'b0101: next_state = AND;
+                    4'b0000: next_state = BR1;
+                    4'b1100: next_state = JMP;
+                    4'b0100: next_state = JSR;
+                    4'b1111: next_state = TRAP1;
+                    4'b0010: next_state = LD;
+                    4'b1010: next_state = LDI1;
+                    4'b0110: next_state = LDR;
+                    4'b1110: next_state = LEA;
+                    4'b1001: next_state = NOT;
+                    4'b0011: next_state = ST;
+                    4'b1011: next_state = STI1;
+                    4'b0111: next_state = STR;
+                    default: next_state = FETCH1;
+                endcase
+            end
 
-        FSM FSM(
-            .CLK(CLK),
-            .RESET(RST),
-            .READY(ready),
-            .BEN(BEN),
-            .N(Nout),
-            .P(Pout),
-            .Z(Zout),
-            .IR(IRout),
-            .LD_MAR(LD_MAR),
-            .LD_MDR(LD_MDR),
-            .LD_IR(LD_IR),
-            .LD_PC(LD_PC),
-            .LD_REG(LD_REG),
-            .LD_BEN(LD_BEN),
-            .LD_CC(LD_CC),
-            .GateMARMUX(GateMARMUX),
-            .GateMDR(GateMDR),
-            .GateALU(GateALU),
-            .GatePC(GatePC),
-            .MARMUXsel(MARMUXsel),
-            .ADDR1MUXsel(ADDR1sel),
-            .ADDR2MUXsel(ADDR2sel),
-            .PCMUXsel(PCMUXsel),
-            .SR1MUXsel(SR1MUXsel),
-            .CS(MIO_EN),
-            .WE(WE),
-            .ALUK(ALUK),
-            .DRMUXsel(DRMUXsel)
-        );
+            BR1: begin
+                case (internal_ben)
+                    1'b0: next_state = FETCH1;
+                    1'b1: next_state = BR2;
+                    default: next_state = FETCH1;
+                endcase
+            end
+
+            BR2: next_state = FETCH1;
+
+            ADD: next_state = FETCH1;
+            AND: next_state = FETCH1;
+            NOT: next_state = FETCH1;
+            LEA: next_state = FETCH1;
+            JMP: next_state = FETCH1;
+
+            TRAP1: next_state = TRAP2;
+
+            TRAP2: begin
+                if (READY)
+                    next_state = TRAP3;
+                else 
+                    next_state = TRAP2;
+            end
+            TRAP3: next_state = FETCH1;
+
+            LD: next_state = MEM11;
+            LDR: next_state = MEM11;
+            LDI1: next_state = LDI2;
+
+            LDI2: begin
+                if (READY)
+                    next_state = LDI3;
+                else
+                    next_state = LDI2;
+            end
+            
+            LDI3: next_state = MEM11;
+
+            MEM11: begin
+                if (READY)
+                    next_state = MEM12;
+                else
+                    next_state = MEM11;
+            end
+
+            MEM12: next_state = FETCH1;
+
+            STI1: next_state = STI2;
+            STI2: begin
+                if (READY)
+                    next_state = STI3;
+                else
+                    next_state = STI2;
+            end
+
+            STI3: next_state = MEM21;
+            STR: next_state = MEM21;
+            ST: next_state = MEM21;
+
+            MEM21: next_state = MEM22;
+            MEM22: begin
+                if (READY)
+                    next_state = FETCH1;
+                else
+                    next_state = MEM22;
+            end
+
+            JSR: begin
+                if (IR[11])
+                    next_state = JSR1;
+                else
+                    next_state = JSR0;
+            end
+            JSR0: next_state = FETCH1;
+            JSR1: next_state = FETCH1;
+
+            default: next_state = FETCH1;
+        endcase
+    end
+
+    // Output logic
+    always @(CLK) begin
+        // CONTROL SIGNALS
+        LD_MAR = 1'b0;
+        LD_MDR = 1'b0;
+        LD_IR = 1'b0;
+        LD_PC = 1'b0;
+        LD_REG = 1'b0;
+        LD_BEN = 1'b0;
+        LD_CC = 1'b0;
+
+        GateMARMUX = 1'b0;
+        GateMDR = 1'b0;
+        GateALU = 1'b0;
+        GatePC = 1'b0;
+
+        MARMUXsel = 1'b0;
+        ADDR1MUXsel = 1'b0;
+        ADDR2MUXsel = 2'b00;
+        PCMUXsel = 2'b00;
+        SR1MUXsel = 2'b00;
+        CS = 1'b0;
+        WE = 1'b0;
+        ALUK = 2'b00;
+        DRMUXsel = 2'b00;
+
+        case (current_state)
+            FETCH1: begin
+		// MAR <- PC
+		// PC <- PC + 1
+                LD_MAR <= 1'b1;
+                GatePC <= 1'b1;
+                LD_PC <= 1'b1;
+                PCMUXsel <= 2'b00;
+            end
+            FETCH2: begin
+		// MDR <- M
+                CS <= 1'b1;
+                LD_MDR <= 1'b1;
+            end
+            FETCH3: begin
+		// IR <- MDR
+                LD_IR <= 1'b1;
+                GateMDR <= 1'b1;
+            end
+            DECODE: begin
+                assign internal_ben = (IR[11] & N) | (IR[10] & Z) | (IR[9] & P);
+            end
+            ADD: begin
+                // DR <- SR1 + OP2
+                // Set CC
+                LD_REG <= 1'b1;
+                DRMUXsel <= 2'b00;
+                SR1MUXsel <= 2'b01;
+                ALUK <= 2'b00;
+                GateALU <= 1'b1;
+                LD_CC <= 1'b1;
+            end
+            AND: begin
+                // DR <- SR1 & OP2
+                // Set CC
+                LD_REG <= 1'b1;
+                DRMUXsel <= 2'b00;
+                SR1MUXsel <= 2'b01;
+                ALUK = 2'b01;
+                GateALU <= 1'b1;
+                LD_CC <= 1'b1;
+            end
+            NOT: begin
+                // DR <- NOT(SR)
+                // Set CC
+                LD_REG <= 1'b1;
+                DRMUXsel <= 2'b00;
+                SR1MUXsel <= 2'b01;
+                ALUK = 2'b10;
+                GateALU <= 1'b1;
+                LD_CC <= 1'b1;
+            end
+            TRAP1: begin
+                // MAR <- ZEXT[IR[7:0]]
+                MARMUXsel <= 1'b0;
+                GateMARMUX <= 1'b1;
+                LD_MAR <= 1'b1;
+            end
+            TRAP2: begin
+                // MDR <- M[MAR]
+                // R7 <- PC
+                CS <= 1'b1;
+                LD_MDR <= 1'b1;
+                DRMUXsel <= 2'b01;
+                LD_REG <= 1'b1;
+                GatePC <= 1'b1;
+            end
+            TRAP3: begin
+                // PC <- MDR
+                GateMDR <= 1'b1;
+                PCMUXsel <= 2'b01;
+                LD_PC <= 1'b1;
+            end
+            LEA: begin
+                // DR <- PC + off9
+                // Set CC
+                DRMUXsel <= 2'b00;
+                LD_REG <= 1'b1;
+                ADDR1MUXsel <= 1'b0;
+                ADDR2MUXsel <= 2'b10;
+                MARMUXsel <= 1'b1;
+                GateMARMUX <= 1'b1;
+                LD_CC <= 1'b1;
+            end
+            LD: begin
+                // MAR <- PC + off9
+                LD_MAR <= 1'b1;
+                ADDR1MUXsel <= 1'b0;
+                ADDR2MUXsel <= 2'b10;
+                MARMUXsel <= 1'b1;
+                GateMARMUX <= 1'b1;
+            end
+            LDR: begin
+                // MAR <- BaseR + off6
+                SR1MUXsel <= 2'b01;
+                ADDR1MUXsel <= 1'b1;
+                ADDR2MUXsel <= 2'b01;
+                MARMUXsel <= 1'b1;
+                GateMARMUX <= 1'b1;
+                LD_MAR <= 1'b1;
+            end
+            LDI1: begin
+                // MAR <- PC + off9
+                ADDR1MUXsel <= 1'b0;
+                ADDR2MUXsel <= 2'b10;
+                MARMUXsel <= 1'b1;
+                GateMARMUX <= 1'b1;
+                LD_MAR <= 1'b1;
+            end
+            LDI2: begin
+                // MDR <- M[MAR]
+                CS <= 1'b1;
+                LD_MDR <= 1'b1;
+            end
+            LDI3: begin
+                // MAR <- MDR
+                GateMDR <= 1'b1;
+                LD_MAR <= 1'b1;
+            end
+            MEM11: begin
+                // MDR <- M[MAR]
+                CS <= 1'b1;
+                LD_MDR <= 1'b1;
+            end
+            MEM12: begin
+                // DR <- MDR
+                // Set CC
+                GateMDR <= 1'b1;
+                LD_REG <= 1'b1;
+                DRMUXsel <= 2'b00;
+                LD_CC <= 1'b1;
+            end
+            STI1: begin
+                // MAR <- PC + off9
+                LD_MAR <= 1'b1;
+                ADDR1MUXsel <= 1'b0;
+                ADDR2MUXsel <= 2'b10;
+                MARMUXsel <= 1'b1;
+                GateMARMUX <= 1'b1;
+            end
+            STI2: begin
+                // MDR <- M[MAR]
+                CS <= 1'b1;
+                LD_MDR <= 1'b1;
+            end
+            STI3: begin
+                // MAR <- MDR
+                GateMDR <= 1'b1;
+                LD_MDR <= 1'b1;
+            end
+            STR: begin
+                // MAR <- BaseR + off6
+                SR1MUXsel <= 2'b01;
+                ADDR1MUXsel <= 1'b1;
+                ADDR2MUXsel <= 2'b01;
+                MARMUXsel <= 1'b1;
+                GateMARMUX <= 1'b1;
+                LD_MAR <= 1'b1;
+            end
+            ST: begin
+                // MAR <- PC + off9
+                LD_MAR <= 1'b1;
+                ADDR1MUXsel <= 1'b0;
+                ADDR2MUXsel <= 2'b10;
+                MARMUXsel <= 1'b1;
+                GateMARMUX <= 1'b1;
+            end
+            MEM21: begin
+                // MDR <- SR
+                SR1MUXsel <= 2'b00;
+                ALUK <= 2'b11;
+                GateALU <= 1'b1;
+                CS <= 1'b0;
+                LD_MDR <= 1'b1;
+            end
+            MEM22: begin
+                // M[MAR] <- MDR
+                CS <= 1'b1;
+                WE <= 1'b1;
+            end
+            JSR: begin
+                // R7 <- PC
+                GatePC <= 1'b1;
+                DRMUXsel <= 2'b01;
+                LD_REG <= 1'b1;
+            end
+            JSR0: begin
+                // PC <- BaseR
+                SR1MUXsel <= 2'b01;
+                ADDR1MUXsel <= 1'b1;
+                ADDR2MUXsel <= 2'b00;
+                PCMUXsel <= 2'b10;
+                LD_PC <= 1'b1;
+            end
+            JSR1: begin
+                // PC <- PC + off11
+                ADDR1MUXsel <= 1'b0;
+                ADDR2MUXsel <= 2'b11;
+                PCMUXsel <= 2'b10;
+                LD_PC <= 1'b1;
+            end
+            JMP: begin
+                // PC <- BaseR
+                SR1MUXsel <= 2'b01;
+                ADDR1MUXsel <= 1'b1;
+                ADDR2MUXsel <= 2'b00;
+                PCMUXsel <= 2'b10;
+                LD_PC <= 1'b1;
+            end
+            BR1: begin
+                // [BEN]
+                LD_BEN <= 1'b1;
+            end
+            BR2: begin
+                // PC <- PC + off9
+                LD_PC <= 1'b1;
+                ADDR1MUXsel <= 1'b0;
+                ADDR2MUXsel <= 2'b10;
+                PCMUXsel <= 2'b10;
+            end
+            default: begin
+                next_state <= FETCH1;
+            end
+        endcase
+    end
 
 endmodule
