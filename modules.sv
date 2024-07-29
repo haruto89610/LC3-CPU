@@ -35,6 +35,7 @@ module mux4x1 #(parameter BIT = 16) (
             2'b01: out = in1;
             2'b10: out = in2;
             2'b11: out = in3;
+            default: out = {BIT{1'bZ}};
         endcase
     end
 endmodule
@@ -59,18 +60,26 @@ module RAM (
 
     reg [15:0] memory [0:2**16];
 
-    initial begin
-        memory[0] <= 16'b0101001001100000;
-        memory[1] <= 16'b0001001001100001;
+    initial begin // PLACE INSTRUCTION HERE
+        memory[0] <= 16'b0101000000100000;
+        memory[1] <= 16'b0101001001100000;
+        memory[2] <= 16'b0010000000000100;
+        memory[3] <= 16'b0010001000000100;
+        memory[4] <= 16'b0101010010100000;
+        memory[5] <= 16'b0001010001000000;
+        memory[6] <= 16'b1011010000000000;
+        memory[7] <= 16'h0005;
+        memory[8] <= 16'h000A;
         ready = 1'b0;
     end
 
-    always @(posedge CLK) begin
+    always @(*) begin
         if (CS) begin
             ready <= 1'b0;
             if (WE) begin
                 memory[ADDR] <= DataIn;
                 out <= 16'bZ;
+                ready <= 1'b0;
             end else if (!WE && CS) begin
                 out <= memory[ADDR];
                 ready <= 1'b1;
