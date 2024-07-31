@@ -372,7 +372,7 @@ module FSM (
             STI3: begin
                 // MAR <- MDR
                 GateMDR <= 1'b1;
-                LD_MDR <= 1'b1;
+                LD_MAR <= 1'b1;
             end
             STR: begin
                 // MAR <- BaseR + off6
