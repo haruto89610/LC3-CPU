@@ -12,5 +12,8 @@ The current memory features a calculator of two values:
   - NUM1 x000A
   - NUM2 x0005
 
+![image](https://github.com/user-attachments/assets/7e3503f3-4ade-479e-a54e-9c34c37719b5)
+
+
 The module.sv file features the basic building blocks for the CPU, including the Muxes, Tristate buffers, ALU, Register file, RAM, and Registers.
 The logic.sv file includes the logic required for the BR COMP and NZP logic required for the BR instruction.
